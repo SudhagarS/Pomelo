@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+        <array name="task_list">
+            <item>Share with friends</item>
+            <item>Rename</item>
+            <item>Copy</item>
+            <item>Cut</item>
+            <item>Delete</item>
+        </array>
+</resources>

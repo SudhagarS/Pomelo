@@ -1,0 +1,13 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".RootActivity" >
+
+    <item android:id="@+id/action_paste"
+        android:title="@string/action_paste"
+        android:orderInCategory="100"
+        android:icon="@drawable/ic_action_content_paste"
+        android:showAsAction="always" />
+
+
+
+</menu>
