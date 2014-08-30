@@ -9,11 +9,14 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
+import android.view.ActionMode;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -30,6 +33,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -37,6 +41,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Stack;
 
 /**
@@ -50,13 +55,12 @@ public class FilesListFragment extends Fragment
     private static final int TASK_CUT = 3;
     private static final int TASK_DELETE = 4;
 
-    // if cut is true, delete the source
-    private String mSrcPath;
+    private boolean mCutOrCopyMode; //used in activity to know if paste menu item should be visible
     private boolean mCut;
 
     private File mCurrentDir;
     private ListView mListView;
-    private ArrayAdapter<File> mAdapter;
+    private FilesArrayAdapter mAdapter;
     private Map<String, List<File>> mFilesListCache = new HashMap<String, List<File>>();
     private File mRootDir;
     private Stack<Integer> mScrollPosStack = new Stack<Integer>();
@@ -95,10 +99,99 @@ public class FilesListFragment extends Fragment
         mAdapter = new FilesArrayAdapter(getActivity(), R.layout.lay_files_adapter, files);
         mListView.setAdapter(mAdapter);
         mListView.setOnItemClickListener(new FileItemClickListener());
-        mListView.setOnItemLongClickListener(new FileItemLongClickListener());
+        mListView.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE_MODAL);
+        mListView.setMultiChoiceModeListener(mMultiModeListener);
         return rootView;
     }
 
+    private Integer[] mLastSelectedItems;
+    private File[] mLastSelectedFiles;
+
+    private AbsListView.MultiChoiceModeListener mMultiModeListener = new AbsListView.MultiChoiceModeListener()
+    {
+
+        @Override
+        public void onItemCheckedStateChanged(ActionMode mode, int position, long id, boolean checked)
+        {
+            mAdapter.toggleItemSelection(position);
+            mode.setTitle(mAdapter.getSelectedItems().size() + "/" + mAdapter.getCount());
+            mode.invalidate();
+        }
+
+        @Override
+        public boolean onCreateActionMode(ActionMode mode, Menu menu)
+        {
+            getActivity().getMenuInflater().inflate(R.menu.contxtl_menu, menu);
+            return true;
+        }
+
+        @Override
+        public boolean onPrepareActionMode(ActionMode mode, Menu menu)
+        {
+            MenuItem renameItem = menu.findItem(R.id.action_rename);
+            MenuItem shareItem = menu.findItem(R.id.action_share);
+            if(mAdapter.getSelectedItems().size()>1)
+            {
+                renameItem.setVisible(false);
+                shareItem.setVisible(false);
+            }
+            else
+            {
+                renameItem.setVisible(true);
+                shareItem.setVisible(true);
+            }
+            return true;
+        }
+
+        @Override
+        public boolean onActionItemClicked(ActionMode mode, MenuItem item)
+        {
+            Object[] tempObjArr = mAdapter.getSelectedItems().toArray();
+            mLastSelectedItems = Arrays.copyOf(tempObjArr, tempObjArr.length, Integer[].class);
+            mLastSelectedFiles = getLastSelectedFiles(mAdapter.getSelectedItems());
+            switch(item.getItemId())
+            {
+                case R.id.action_share:
+                    onTaskPicked(TASK_SHARE);
+                    break;
+
+                case R.id.action_rename:
+                    onTaskPicked(TASK_RENAME);
+                    break;
+
+                case R.id.action_copy:
+                    onTaskPicked(TASK_COPY);
+                    break;
+
+                case R.id.action_cut:
+                    onTaskPicked(TASK_CUT);
+                    break;
+
+                case R.id.action_delete:
+                    onTaskPicked(TASK_DELETE);
+                    break;
+            }
+            mode.finish();
+            return true;
+        }
+
+        @Override
+        public void onDestroyActionMode(ActionMode mode)
+        {
+            mAdapter.clearSelection();
+        }
+    };
+
+    private File[] getLastSelectedFiles(Set<Integer> selectedPositions)
+    {
+        File[] files = new File[selectedPositions.size()];
+        int j = 0;
+        for(Integer i : selectedPositions)
+        {
+            files[j++] = mAdapter.getItem(i);
+        }
+        return files;
+    }
 
     private void cacheInvalidate()
     {
@@ -239,19 +332,6 @@ public class FilesListFragment extends Fragment
         }
     }
 
-    private int mLastLongclickedPos = 0;
-    private class FileItemLongClickListener implements AdapterView.OnItemLongClickListener
-    {
-        @Override
-        public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id)
-        {
-            mLastLongclickedPos = position;
-            DialogFragment newDialog = new TaskDialogFragment();
-            newDialog.show(getActivity().getFragmentManager(), "Task Chooser Dialog");
-            return true;
-        }
-    }
-
     public void onTaskPicked(int task)
     {
         if(task==TASK_SHARE)
@@ -259,7 +339,7 @@ public class FilesListFragment extends Fragment
             FragmentTransaction transaction = getActivity().getFragmentManager().beginTransaction();
             ShareFragment shareFragment = new ShareFragment();
             Bundle bundle = new Bundle();
-            bundle.putString(Constants.KEY_FILE_NAME, mAdapter.getItem(mLastLongclickedPos).getName());
+            bundle.putString(Constants.KEY_FILE_NAME, mLastSelectedFiles[0].getName());
             shareFragment.setArguments(bundle);
             transaction.replace(R.id.container, shareFragment);
             transaction.addToBackStack("ShareFragTrans");
@@ -269,35 +349,31 @@ public class FilesListFragment extends Fragment
         {
             DialogFragment renameDialogFragment = new RenameDialogFragment();
             Bundle bundle = new Bundle();
-            bundle.putString(Constants.KEY_OLD_NAME, mAdapter.getItem(mLastLongclickedPos).getName());
+            bundle.putString(Constants.KEY_OLD_NAME, mLastSelectedFiles[0].getName());
             renameDialogFragment.setArguments(bundle);
             renameDialogFragment.show(getFragmentManager(), "Rename Dialog Fragment");
         }
         else if(task==TASK_COPY)
         {
-            mSrcPath = mAdapter.getItem(mLastLongclickedPos).getAbsolutePath();
+            mCutOrCopyMode = true;
             getActivity().invalidateOptionsMenu();
         }
         else if(task==TASK_CUT)
         {
-            mSrcPath = mAdapter.getItem(mLastLongclickedPos).getAbsolutePath();
+            mCutOrCopyMode = true;
             getActivity().invalidateOptionsMenu();
             mCut = true;
         }
         else if(task==TASK_DELETE){
-
             DialogFragment deleteFileDialogFragment = new DeleteFileDialogFragment();
-            Bundle bundle = new Bundle();
-            bundle.putString(Constants.KEY_OLD_NAME, mAdapter.getItem(mLastLongclickedPos).getName());
-            deleteFileDialogFragment.setArguments(bundle);
             deleteFileDialogFragment.show(getFragmentManager(), "Delete File Dialog Fragment");
         }
     }
 
     public void onRenamed(String newName)
     {
-        int i = 0;
-        File from = mAdapter.getItem(mLastLongclickedPos);
+        Log.d(Constants.FRAG_TAG, "onRenamed" + mLastSelectedItems);
+        File from = mAdapter.getItem(mLastSelectedItems[0]);
 
         if(newName.equals(from.getName())) {
             return;
@@ -318,75 +394,88 @@ public class FilesListFragment extends Fragment
 
     public void onDeleted()
     {
-        File file = mAdapter.getItem(mLastLongclickedPos);
         try
         {
-            FileUtil.delete(file);
+            for (File file : mLastSelectedFiles)
+            {
+                FileUtil.delete(file);
+            }
             showToast(R.string.delete_success);
+            cacheInvalidate();
+            resetAdapter();
+            clearLastSeletedFiles();
         }
-        catch(IOException e)
+        catch (IOException e)
         {
             showToast(R.string.delete_failed);
         }
-        cacheInvalidate();
-        resetAdapter();
     }
 
     public void initPaste()
     {
-        File file = new File(mSrcPath);
-
-        // ensure it is not pasted in same directory
-        if(file.getParent().equals(mCurrentDir.getAbsolutePath()))
-        {
-            showToast(R.string.paste_desthassrc);
-            return;
-        }
-        else
-        {
-            long size = file.isDirectory() ? FileUtil.folderSize(file) : file.length();
-            new CopyFileTask(size).execute(file);
-        }
+        // TODO look for duplicate names in target directory and
+        // abort the process if anything found
+        new CopyFileTask(this, mCurrentDir, mLastSelectedFiles).execute();
     }
 
     //used by activity
-    public String getSrcPath()
+    public boolean isCutOrCopyMode()
     {
-        return mSrcPath;
+        return mCutOrCopyMode;
     }
 
-    private void onPasteDone()
+    private void onCutOrCopyDone()
     {
         cacheInvalidate();
         if (mCut)
         {
             try
             {
-                File srcFile = new File(mSrcPath);
-                cacheInvalidate(srcFile.getParent());
-                FileUtil.delete(srcFile);
-                cacheInvalidate(mSrcPath);
-                mCut = false;
+                for(File file : mLastSelectedFiles) {
+                    cacheInvalidate(file.getParent());
+                    FileUtil.delete(file);
+                    cacheInvalidate(file.getAbsolutePath());
+                }
             }
             catch (IOException e)
             {
                 e.printStackTrace();
             }
         }
-
+        mCut = false;
         resetAdapter();
-        mSrcPath = null;
+        mCutOrCopyMode = false;
+        clearLastSeletedFiles();
         getActivity().invalidateOptionsMenu();
     }
 
-    private class CopyFileTask extends AsyncTask<File, Integer, Boolean>
+    private void clearLastSeletedFiles()
     {
+        mLastSelectedFiles = null;
+    }
+
+    private static class CopyFileTask extends AsyncTask<Void, Integer, Boolean>
+    {
+        private WeakReference<FilesListFragment> weakFragRef;
         private long mTotalSize;
+        private File[] mfiles;
+        private File mCurrentDir;
         private ProgressDialog mProgressDialog;
 
-        public CopyFileTask(long totalSize)
+        public CopyFileTask(FilesListFragment fragment, File currentDir, File[] lastSelectedFiles)
         {
-            mTotalSize = totalSize;
+            weakFragRef = new WeakReference<FilesListFragment>(fragment);
+            mCurrentDir = currentDir;
+            mfiles = Arrays.copyOf(lastSelectedFiles, lastSelectedFiles.length);
+            calculateTotalSize();
+        }
+
+        private void calculateTotalSize()
+        {
+            for(File f : mfiles)
+            {
+                mTotalSize += (f.isDirectory() ? FileUtil.folderSize(f) : f.length());
+            }
         }
 
         private int copyFile(File src, File dst, int progress) throws IOException
@@ -433,37 +522,42 @@ public class FilesListFragment extends Fragment
         @Override
         protected void onPreExecute()
         {
-            mProgressDialog = new ProgressDialog(getActivity());
-            mProgressDialog.setMessage("Copying...");
-            mProgressDialog.setIndeterminate(false);
-            mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-            mProgressDialog.setMax((int) mTotalSize);
-            mProgressDialog.setProgressNumberFormat(null);
-            mProgressDialog.setProgress(0);
-            mProgressDialog.setOnCancelListener(new DialogInterface.OnCancelListener()
+            if(weakFragRef.get()!=null)
             {
-                public void onCancel(DialogInterface arg0)
-                {
+                mProgressDialog = new ProgressDialog(weakFragRef.get().getActivity());
+                String message = "Copying(0/" + mfiles.length + ")";
+                mProgressDialog.setMessage("Copying()");
+                mProgressDialog.setIndeterminate(false);
+                mProgressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+                mProgressDialog.setMax((int) mTotalSize);
+                mProgressDialog.setProgressNumberFormat(null);
+                mProgressDialog.setProgress(0);
+                mProgressDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                    public void onCancel(DialogInterface arg0) {
 
-                }
-            });
-            mProgressDialog.show();
+                    }
+                });
+                mProgressDialog.show();
+            }
         }
 
         @Override
-        protected Boolean doInBackground(File... src)
+        protected Boolean doInBackground(Void... _)
         {
-            File srcFile = src[0];
-            File trgFile = new File(mCurrentDir.getAbsolutePath() + "/" + srcFile.getName());
+            int progress = 0;
+            for(File f:mfiles)
+            {
+                File trgFile = new File(mCurrentDir.getAbsolutePath() + "/" + f.getName());
 
-            try
-            {
-                copyFile(srcFile, trgFile, 0);
-            }
-            catch (IOException e)
-            {
-                e.printStackTrace();
-                return false;
+                try
+                {
+                    progress = copyFile(f, trgFile, progress);
+                }
+                catch (IOException e)
+                {
+                    e.printStackTrace();
+                    return false;
+                }
             }
             return true;
         }
@@ -477,7 +571,10 @@ public class FilesListFragment extends Fragment
         @Override
         protected void onPostExecute(Boolean result)
         {
-            onPasteDone();
+            if(weakFragRef.get()!=null)
+            {
+                weakFragRef.get().onCutOrCopyDone();
+            }
             mProgressDialog.dismiss();
         }
     }

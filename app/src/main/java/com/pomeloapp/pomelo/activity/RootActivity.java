@@ -44,7 +44,7 @@ public class RootActivity extends Activity implements
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
         FilesListFragment fragment = (FilesListFragment) getFragmentManager().findFragmentByTag(Constants.FRAG_TAG);
-        menu.findItem(R.id.action_paste).setVisible(fragment.getSrcPath()!=null);
+        menu.findItem(R.id.action_paste).setVisible(fragment.isCutOrCopyMode());
         return super.onPrepareOptionsMenu(menu);
     }
 

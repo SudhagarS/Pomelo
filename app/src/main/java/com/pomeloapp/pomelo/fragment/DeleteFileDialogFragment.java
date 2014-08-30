@@ -11,7 +11,6 @@ import android.content.DialogInterface;
 import android.os.Bundle;
 
 import com.pomeloapp.pomelo.R;
-import com.pomeloapp.pomelo.util.Constants;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -19,8 +18,6 @@ import com.pomeloapp.pomelo.util.Constants;
  */
 public class DeleteFileDialogFragment extends DialogFragment
 {
-
-    private String mOldName;
 
     public interface DeleteFileDialogListener
     {
@@ -33,7 +30,6 @@ public class DeleteFileDialogFragment extends DialogFragment
     public void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
-        mOldName = getArguments().getString(Constants.KEY_OLD_NAME);
     }
 
     @Override
@@ -54,15 +50,9 @@ public class DeleteFileDialogFragment extends DialogFragment
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState)
     {
-        StringBuilder messageBuilder = new StringBuilder(getActivity().
-                getResources().getString(R.string.delete_confirm));
-        messageBuilder.append(" ");
-        messageBuilder.append(mOldName);
-        messageBuilder.append("?");
-
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
         builder.setTitle(R.string.delete)
-                .setMessage(messageBuilder.toString())
+                .setMessage(R.string.delete_confirm)
                 .setPositiveButton(R.string.ok, new DialogInterface.OnClickListener()
                  {
                     @Override
