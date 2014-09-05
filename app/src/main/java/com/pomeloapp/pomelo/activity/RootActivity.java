@@ -10,12 +10,10 @@ import com.pomeloapp.pomelo.R;
 import com.pomeloapp.pomelo.fragment.DeleteFileDialogFragment;
 import com.pomeloapp.pomelo.fragment.FilesListFragment;
 import com.pomeloapp.pomelo.fragment.RenameDialogFragment;
-import com.pomeloapp.pomelo.fragment.TaskDialogFragment;
 import com.pomeloapp.pomelo.util.Constants;
 
 
 public class RootActivity extends Activity implements
-        TaskDialogFragment.TaskDialogListener,
         RenameDialogFragment.RenameDialogListener,
         DeleteFileDialogFragment.DeleteFileDialogListener
 {
@@ -25,7 +23,7 @@ public class RootActivity extends Activity implements
     {
         if(mFilesListFragment==null)
         {
-            mFilesListFragment = (FilesListFragment) getFragmentManager().findFragmentByTag(Constants.FRAG_TAG);
+            mFilesListFragment = (FilesListFragment) getFragmentManager().findFragmentByTag(Constants.FILES_LIST_FRAG_TAG);
         }
         return mFilesListFragment;
     }
@@ -38,7 +36,7 @@ public class RootActivity extends Activity implements
         if (savedInstanceState == null)
         {
             getFragmentManager().beginTransaction()
-                    .add(R.id.container, new FilesListFragment(), Constants.FRAG_TAG)
+                    .add(R.id.container, new FilesListFragment(), Constants.FILES_LIST_FRAG_TAG)
                     .commit();
         }
     }
@@ -52,7 +50,8 @@ public class RootActivity extends Activity implements
     }
 
     @Override
-    public boolean onPrepareOptionsMenu(Menu menu) {
+    public boolean onPrepareOptionsMenu(Menu menu)
+    {
         FilesListFragment fragment = getFilesListFragment();
         menu.findItem(R.id.action_paste).setVisible(fragment.isCutOrCopyMode());
         return super.onPrepareOptionsMenu(menu);
@@ -74,27 +73,27 @@ public class RootActivity extends Activity implements
     @Override
     public void onBackPressed()
     {
-        Log.d(Constants.FRAG_TAG, "onBackPressed");
+        Log.d(Constants.LOG_TAG, "onBackPressed");
+        Log.d(Constants.LOG_TAG, "Share fragment"+getFragmentManager().findFragmentByTag(Constants.SHARE_FRAG_TAG));
+        Log.d(Constants.LOG_TAG, "files fragment"+getFragmentManager().findFragmentByTag(Constants.FILES_LIST_FRAG_TAG));
+
+        if(getFragmentManager().findFragmentByTag(Constants.SHARE_FRAG_TAG)!=null)
+        {
+            boolean popped = getFragmentManager().popBackStackImmediate();
+            Log.d(Constants.LOG_TAG, "popped value is " + popped);
+            return;
+        }
+
         FilesListFragment fragment = getFilesListFragment();
         if(fragment!=null && !fragment.isCurDirRoot())
         {
-            Log.d(Constants.FRAG_TAG, "onBackPressed, current is not root.");
+            Log.d(Constants.LOG_TAG, "onBackPressed, current is not root.");
             fragment.goOneLevelUp();
             fragment.resetAdapter();
             fragment.setScrollPos();
             return;
         }
         super.onBackPressed();
-    }
-
-    @Override
-    public void onTaskPicked(int task)
-    {
-        FilesListFragment fragment = getFilesListFragment();
-        if(fragment!=null)
-        {
-            fragment.onTaskPicked(task);
-        }
     }
 
     @Override

@@ -49,11 +49,11 @@ import java.util.Stack;
  */
 public class FilesListFragment extends Fragment
 {
-    private static final int TASK_SHARE = 0;
-    private static final int TASK_RENAME = 1;
-    private static final int TASK_COPY = 2;
-    private static final int TASK_CUT = 3;
-    private static final int TASK_DELETE = 4;
+    private static final int TASK_SHARE = R.id.action_share;
+    private static final int TASK_RENAME = R.id.action_rename;
+    private static final int TASK_COPY = R.id.action_copy;
+    private static final int TASK_CUT = R.id.action_cut;
+    private static final int TASK_DELETE = R.id.action_delete;
 
     private boolean mCutOrCopyMode; //used in activity to know if paste menu item should be visible
     private boolean mCut;
@@ -83,7 +83,15 @@ public class FilesListFragment extends Fragment
         List<File> files = null;
         if(StorageUtil.isExternalStorageReadable())
         {
-            mRootDir = mCurrentDir = Environment.getExternalStorageDirectory();
+            mRootDir = Environment.getExternalStorageDirectory();
+            // when this fragment is re-added after share fragment is popped,
+            // onCreateView is called again.
+            // To prevent from changing current dir value to root dir,
+            // check if it is null and set the value
+            if(mCurrentDir==null)
+            {
+                mCurrentDir = mRootDir;
+            }
             try
             {
                 Log.d(Constants.LOG_TAG, "canonical path is " + mRootDir.getCanonicalPath());
@@ -149,28 +157,7 @@ public class FilesListFragment extends Fragment
             Object[] tempObjArr = mAdapter.getSelectedItems().toArray();
             mLastSelectedItems = Arrays.copyOf(tempObjArr, tempObjArr.length, Integer[].class);
             mLastSelectedFiles = getLastSelectedFiles(mAdapter.getSelectedItems());
-            switch(item.getItemId())
-            {
-                case R.id.action_share:
-                    onTaskPicked(TASK_SHARE);
-                    break;
-
-                case R.id.action_rename:
-                    onTaskPicked(TASK_RENAME);
-                    break;
-
-                case R.id.action_copy:
-                    onTaskPicked(TASK_COPY);
-                    break;
-
-                case R.id.action_cut:
-                    onTaskPicked(TASK_CUT);
-                    break;
-
-                case R.id.action_delete:
-                    onTaskPicked(TASK_DELETE);
-                    break;
-            }
+            onTaskPicked(item.getItemId());
             mode.finish();
             return true;
         }
@@ -259,19 +246,19 @@ public class FilesListFragment extends Fragment
 
     public void resetAdapter()
     {
-        Log.d(Constants.FRAG_TAG, "resetAdapter()");
+        Log.d(Constants.LOG_TAG, "resetAdapter()");
         mAdapter.clear();
         List<File> temp = getCurFilesList();
-        Log.d(Constants.FRAG_TAG, "files list size is " + temp.size());
+        Log.d(Constants.LOG_TAG, "files list size is " + temp.size());
         mAdapter.addAll(temp);
         mAdapter.notifyDataSetChanged();
-        Log.d(Constants.FRAG_TAG, "<----------------------------------------------------->");
+        Log.d(Constants.LOG_TAG, "<----------------------------------------------------->");
     }
 
     public void setScrollPos()
     {
-        Log.d(Constants.FRAG_TAG, "setScrollPos() from poping the stack.");
-        Log.d(Constants.FRAG_TAG, mScrollPosStack.toString());
+        Log.d(Constants.LOG_TAG, "setScrollPos() from poping the stack.");
+        Log.d(Constants.LOG_TAG, mScrollPosStack.toString());
         mListView.postDelayed(new Runnable() {
             @Override
             public void run() {
@@ -282,9 +269,9 @@ public class FilesListFragment extends Fragment
 
     private void updateCurrentDir(int position)
     {
-        Log.d(Constants.FRAG_TAG, "updateCurrentDir, old current" + mCurrentDir);
+        Log.d(Constants.LOG_TAG, "updateCurrentDir, old current" + mCurrentDir);
         mCurrentDir = mFilesListCache.get(mCurrentDir.getAbsolutePath()).get(position);
-        Log.d(Constants.FRAG_TAG, "updateCurrentDir, new current " + mCurrentDir);
+        Log.d(Constants.LOG_TAG, "updateCurrentDir, new current " + mCurrentDir);
     }
 
 
@@ -295,12 +282,12 @@ public class FilesListFragment extends Fragment
 
     public void goOneLevelUp()
     {
-        Log.d(Constants.FRAG_TAG, "goOneLevelUp()");
+        Log.d(Constants.LOG_TAG, "goOneLevelUp()");
         if (!isCurDirRoot())
         { // isCurDirRoot already checked.
             mCurrentDir = mCurrentDir.getParentFile();
         }
-        Log.d(Constants.FRAG_TAG, "Current now is " + mCurrentDir);
+        Log.d(Constants.LOG_TAG, "Current now is " + mCurrentDir);
     }
 
 
@@ -310,7 +297,7 @@ public class FilesListFragment extends Fragment
         public void onItemClick(AdapterView<?> parent, View view, int position, long id)
         {
             File clickedFile = mAdapter.getItem(position);
-            Log.d(Constants.FRAG_TAG, "mScrollPosStack  " + parent.getFirstVisiblePosition() );
+            Log.d(Constants.LOG_TAG, "mScrollPosStack  " + parent.getFirstVisiblePosition() );
             if(clickedFile.isDirectory())
             {
                 mScrollPosStack.push(parent.getFirstVisiblePosition());
@@ -325,27 +312,27 @@ public class FilesListFragment extends Fragment
                     FileUtil.openFile(getActivity(), clickedFile);
                 } catch (IOException e)
                 {
-                    Log.d(Constants.FRAG_TAG, "IO Exception when trying to open file.");
+                    Log.d(Constants.LOG_TAG, "IO Exception when trying to open file.");
                     e.printStackTrace();
                 }
             }
         }
     }
 
-    public void onTaskPicked(int task)
+    private void onTaskPicked(int taskIconId)
     {
-        if(task==TASK_SHARE)
+        if(taskIconId==TASK_SHARE)
         {
             FragmentTransaction transaction = getActivity().getFragmentManager().beginTransaction();
             ShareFragment shareFragment = new ShareFragment();
             Bundle bundle = new Bundle();
             bundle.putString(Constants.KEY_FILE_NAME, mLastSelectedFiles[0].getName());
             shareFragment.setArguments(bundle);
-            transaction.replace(R.id.container, shareFragment);
-            transaction.addToBackStack("ShareFragTrans");
+            transaction.replace(R.id.container, shareFragment, Constants.SHARE_FRAG_TAG);
+            transaction.addToBackStack(null);
             transaction.commit();
         }
-        else if(task==TASK_RENAME)
+        else if(taskIconId==TASK_RENAME)
         {
             DialogFragment renameDialogFragment = new RenameDialogFragment();
             Bundle bundle = new Bundle();
@@ -353,26 +340,27 @@ public class FilesListFragment extends Fragment
             renameDialogFragment.setArguments(bundle);
             renameDialogFragment.show(getFragmentManager(), "Rename Dialog Fragment");
         }
-        else if(task==TASK_COPY)
+        else if(taskIconId==TASK_COPY)
         {
             mCutOrCopyMode = true;
             getActivity().invalidateOptionsMenu();
         }
-        else if(task==TASK_CUT)
+        else if(taskIconId==TASK_CUT)
         {
             mCutOrCopyMode = true;
             getActivity().invalidateOptionsMenu();
             mCut = true;
         }
-        else if(task==TASK_DELETE){
+        else if(taskIconId==TASK_DELETE){
             DialogFragment deleteFileDialogFragment = new DeleteFileDialogFragment();
             deleteFileDialogFragment.show(getFragmentManager(), "Delete File Dialog Fragment");
         }
     }
 
+    //called from RootActivity
     public void onRenamed(String newName)
     {
-        Log.d(Constants.FRAG_TAG, "onRenamed" + mLastSelectedItems);
+        Log.d(Constants.LOG_TAG, "onRenamed" + mLastSelectedItems);
         File from = mAdapter.getItem(mLastSelectedItems[0]);
 
         if(newName.equals(from.getName())) {
@@ -392,6 +380,7 @@ public class FilesListFragment extends Fragment
         resetAdapter();
     }
 
+    //called from RootActivity
     public void onDeleted()
     {
         try
@@ -411,6 +400,7 @@ public class FilesListFragment extends Fragment
         }
     }
 
+    // called from RootActivity after paste menu icon is clicked
     public void initPaste()
     {
         // TODO look for duplicate names in target directory and
