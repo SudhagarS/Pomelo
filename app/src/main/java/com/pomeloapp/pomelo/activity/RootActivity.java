@@ -19,6 +19,16 @@ public class RootActivity extends Activity implements
         RenameDialogFragment.RenameDialogListener,
         DeleteFileDialogFragment.DeleteFileDialogListener
 {
+    private FilesListFragment mFilesListFragment;
+
+    private FilesListFragment getFilesListFragment()
+    {
+        if(mFilesListFragment==null)
+        {
+            mFilesListFragment = (FilesListFragment) getFragmentManager().findFragmentByTag(Constants.FRAG_TAG);
+        }
+        return mFilesListFragment;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -43,7 +53,7 @@ public class RootActivity extends Activity implements
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        FilesListFragment fragment = (FilesListFragment) getFragmentManager().findFragmentByTag(Constants.FRAG_TAG);
+        FilesListFragment fragment = getFilesListFragment();
         menu.findItem(R.id.action_paste).setVisible(fragment.isCutOrCopyMode());
         return super.onPrepareOptionsMenu(menu);
     }
@@ -54,7 +64,7 @@ public class RootActivity extends Activity implements
         int id = item.getItemId();
         if (id == R.id.action_paste)
         {
-            FilesListFragment fragment = (FilesListFragment) getFragmentManager().findFragmentByTag(Constants.FRAG_TAG);
+            FilesListFragment fragment = getFilesListFragment();
             fragment.initPaste();
             return true;
         }
@@ -65,7 +75,7 @@ public class RootActivity extends Activity implements
     public void onBackPressed()
     {
         Log.d(Constants.FRAG_TAG, "onBackPressed");
-        FilesListFragment fragment = (FilesListFragment) getFragmentManager().findFragmentByTag(Constants.FRAG_TAG);
+        FilesListFragment fragment = getFilesListFragment();
         if(fragment!=null && !fragment.isCurDirRoot())
         {
             Log.d(Constants.FRAG_TAG, "onBackPressed, current is not root.");
@@ -80,7 +90,7 @@ public class RootActivity extends Activity implements
     @Override
     public void onTaskPicked(int task)
     {
-        FilesListFragment fragment = (FilesListFragment) getFragmentManager().findFragmentByTag(Constants.FRAG_TAG);
+        FilesListFragment fragment = getFilesListFragment();
         if(fragment!=null)
         {
             fragment.onTaskPicked(task);
@@ -90,7 +100,7 @@ public class RootActivity extends Activity implements
     @Override
     public void onRenamed(String newName)
     {
-        FilesListFragment fragment = (FilesListFragment) getFragmentManager().findFragmentByTag(Constants.FRAG_TAG);
+        FilesListFragment fragment = getFilesListFragment();
         if(fragment!=null)
         {
             fragment.onRenamed(newName);
@@ -100,7 +110,7 @@ public class RootActivity extends Activity implements
     @Override
     public void onDeleted()
     {
-        FilesListFragment fragment = (FilesListFragment) getFragmentManager().findFragmentByTag(Constants.FRAG_TAG);
+        FilesListFragment fragment = getFilesListFragment();
         if(fragment!=null)
         {
             fragment.onDeleted();
